@@ -3,24 +3,44 @@ import { useLanguage } from '../context/LanguageContext'
 import { teamName } from '../data/teams'
 import * as db from '../data/effotbaleDb'
 import TeamBadge from '../components/TeamBadge'
+import { useMatchesRealtime } from '../hooks/useMatchesRealtime'
 
 const KO_ORDER = ['r32', 'r16', 'qf', 'sf', 'final']
 
+function TeamSide({ team, win, lang }) {
+  const nd = !team
+  return (
+    <div className={`match-team ${win ? 'win' : ''}`}>
+      {nd ? (
+        <span className="team-badge nd-badge" aria-hidden="true">
+          ?
+        </span>
+      ) : (
+        <TeamBadge team={team} />
+      )}
+      <span className="match-team-name">{nd ? 'N/D' : teamName(team, lang)}</span>
+    </div>
+  )
+}
+
 function MatchRow({ match, isFinal }) {
   const { t, lang } = useLanguage()
-  const homeWin = match.homeScore > match.awayScore
-  const awayWin = match.awayScore > match.homeScore
+  const hasScore = match.homeScore !== null && match.awayScore !== null
+  const homeWin = !!match.winner && !!match.home && match.winner.id === match.home.id
+  const awayWin = !!match.winner && !!match.away && match.winner.id === match.away.id
+  const statusLabel =
+    match.status === 'live'
+      ? t('matches.live')
+      : match.status === 'finished'
+        ? t('matches.ft')
+        : t('matches.scheduled')
+
   return (
     <div className="match-row">
-      <div className={`match-team ${homeWin ? 'win' : ''}`}>
-        <TeamBadge team={match.home} />
-        <span className="match-team-name">{teamName(match.home, lang)}</span>
-      </div>
+      <TeamSide team={match.home} win={homeWin} lang={lang} />
       <div className="match-center">
-        <span className="match-score">
-          {match.homeScore}–{match.awayScore}
-        </span>
-        <span className="match-status">{t('matches.ft')}</span>
+        <span className="match-score">{hasScore ? `${match.homeScore}–${match.awayScore}` : '—'}</span>
+        <span className="match-status">{statusLabel}</span>
       </div>
       <div className={`match-team away ${awayWin ? 'win' : ''}`}>
         {isFinal && match.winner && (
@@ -28,8 +48,14 @@ function MatchRow({ match, isFinal }) {
             🏆
           </span>
         )}
-        <TeamBadge team={match.away} />
-        <span className="match-team-name">{teamName(match.away, lang)}</span>
+        {match.away ? (
+          <TeamBadge team={match.away} />
+        ) : (
+          <span className="team-badge nd-badge" aria-hidden="true">
+            ?
+          </span>
+        )}
+        <span className="match-team-name">{match.away ? teamName(match.away, lang) : 'N/D'}</span>
       </div>
     </div>
   )
@@ -50,12 +76,12 @@ function GroupStage({ matches }) {
                 {t('standings.group')} {group}
               </span>
               <span className="group-card-sub">
-                {gMatches.length} {t('matches.unit')}
+                {gMatches.length} {t('matches.played')}
               </span>
             </div>
-            <div className="match-list">
-              {gMatches.map((m) => (
-                <MatchRow key={m.id} match={m} />
+            <div className="group-card-body">
+              {gMatches.map((match) => (
+                <MatchRow key={match.id} match={match} />
               ))}
             </div>
           </div>
@@ -67,25 +93,20 @@ function GroupStage({ matches }) {
 
 function KnockoutStage({ ko }) {
   const { t } = useLanguage()
-
   return (
-    <div className="groups-grid">
-      {KO_ORDER.map((key) => {
-        const ms = ko[key] || []
+    <div className="ko-matches">
+      {KO_ORDER.map((stage) => {
+        const matches = ko[stage] || []
+        if (matches.length === 0) return null
         return (
-          <div key={key} className="group-card card-hover-glow">
-            <div className="group-card-head">
-              <span className="group-card-title">{t(`round.${key}`)}</span>
-              <span className="group-card-sub">
-                {ms.length} {t('matches.unit')}
-              </span>
-            </div>
-            <div className="match-list">
-              {ms.map((m, i) => (
-                <MatchRow key={`${key}-${i}`} match={m} isFinal={key === 'final'} />
+          <section key={stage} className="ko-round">
+            <h2 className="ko-round-title">{t(`round.${stage}`)}</h2>
+            <div className="ko-matches-grid">
+              {matches.map((match) => (
+                <MatchRow key={match.id} match={match} isFinal={stage === 'final'} />
               ))}
             </div>
-          </div>
+          </section>
         )
       })}
     </div>
@@ -97,19 +118,37 @@ function Matches() {
   const [view, setView] = useState('groups')
   const [matches, setMatches] = useState([])
   const [ko, setKo] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
-    db.getMatchResults()
-      .then((m) => active && setMatches(m))
-      .catch((err) => console.error('Failed to load matches', err))
-    db.getKnockoutData()
-      .then((k) => active && setKo(k))
-      .catch((err) => console.error('Failed to load knockout', err))
+    Promise.all([db.getMatchResults(), db.getKnockoutData()])
+      .then(([m, k]) => {
+        if (!active) return
+        setMatches(m)
+        setKo(k)
+        setError('')
+      })
+      .catch((err) => {
+        if (!active) return
+        console.error('Failed to load matches', err)
+        setError('Failed to load matches')
+      })
+      .finally(() => active && setLoading(false))
     return () => {
       active = false
     }
   }, [])
+
+  useMatchesRealtime(() => {
+    Promise.all([db.getMatchResults(), db.getKnockoutData()])
+      .then(([m, k]) => {
+        setMatches(m)
+        setKo(k)
+      })
+      .catch((err) => console.error('Realtime refresh failed', err))
+  })
 
   return (
     <main className="page-fade">
@@ -138,7 +177,12 @@ function Matches() {
           </button>
         </div>
 
-        {view === 'groups' ? <GroupStage matches={matches} /> : <KnockoutStage ko={ko} />}
+        {loading && <div className="load-state">…</div>}
+        {!loading && error && <div className="err-state">{error}</div>}
+
+        {!loading &&
+          !error &&
+          (view === 'groups' ? <GroupStage matches={matches} /> : <KnockoutStage ko={ko} />)}
       </section>
     </main>
   )

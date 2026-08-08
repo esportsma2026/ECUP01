@@ -3,6 +3,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { teamName } from '../data/teams'
 import * as db from '../data/effotbaleDb'
 import TeamBadge from '../components/TeamBadge'
+import { useMatchesRealtime } from '../hooks/useMatchesRealtime'
 import './knockout.css'
 
 const ROUND_DEFS = [
@@ -41,11 +42,18 @@ function connectorStyle(roundIndex, k) {
 }
 
 function TeamRow({ team, score, win, lang }) {
+  const nd = !team
   return (
-    <div className={`bracket-team ${win ? 'win' : ''}`}>
-      <TeamBadge team={team} />
-      <span className="bracket-team-name" title={teamName(team, lang)}>
-        {teamName(team, lang)}
+    <div className={`bracket-team ${win ? 'win' : ''} ${nd ? 'nd' : ''}`}>
+      {nd ? (
+        <span className="team-badge nd-badge" aria-hidden="true">
+          ?
+        </span>
+      ) : (
+        <TeamBadge team={team} />
+      )}
+      <span className="bracket-team-name" title={nd ? 'N/D' : teamName(team, lang)}>
+        {nd ? 'N/D' : teamName(team, lang)}
       </span>
       <span className="bracket-team-score">{score ?? '–'}</span>
       {win && (
@@ -82,18 +90,30 @@ function ChampionBanner({ team, lang }) {
 function Knockout() {
   const { t, lang } = useLanguage()
   const [ko, setKo] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
     db.getKnockoutData()
       .then((k) => active && setKo(k))
-      .catch((err) => console.error('Failed to load knockout', err))
+      .catch((err) => {
+        console.error('Failed to load knockout', err)
+        if (active) setError('Failed to load knockout')
+      })
+      .finally(() => active && setLoading(false))
     return () => {
       active = false
     }
   }, [])
 
-  const name = (team) => teamName(team, lang)
+  useMatchesRealtime(() => {
+    db.getKnockoutData()
+      .then((k) => setKo(k))
+      .catch((err) => console.error('Realtime refresh failed', err))
+  })
+
+  const name = (team) => (team ? teamName(team, lang) : 'N/D')
   const finalMatch = ko.final && ko.final[0]
   const winner = finalMatch && finalMatch.winner
 
@@ -106,6 +126,10 @@ function Knockout() {
         </div>
       </section>
 
+      {loading && <div className="load-state">…</div>}
+      {!loading && error && <div className="err-state">{error}</div>}
+
+      {!loading && !error && (
       <section className="container knockout-page">
         {winner && <ChampionBanner team={winner} lang={lang} />}
 
@@ -139,8 +163,8 @@ function Knockout() {
 
             {ROUND_DEFS.map((r, ri) =>
               (ko[r.key] || []).map((m, k) => {
-                const homeWin = m.homeScore > m.awayScore
-                const awayWin = m.awayScore > m.homeScore
+                const homeWin = !!m.winner && !!m.home && m.winner.id === m.home.id
+                const awayWin = !!m.winner && !!m.away && m.winner.id === m.away.id
                 return (
                   <div
                     key={m.id || `${r.key}-${k}`}
@@ -163,6 +187,7 @@ function Knockout() {
           </div>
         </div>
       </section>
+      )}
     </main>
   )
 }

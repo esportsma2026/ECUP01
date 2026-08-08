@@ -1,84 +1,158 @@
-// Supabase-backed data layer.
-// Every function is async and returns the SAME shapes the pages already expect
-// (team objects with { id, code, group, en, ar, flag }, match objects with
-// { id, group, stage, status, home, away, homeScore, awayScore, winner }, and
-// standings rows with { team, pos, played, won, drawn, lost, gf, ga, gd, pts }).
+// Supabase-backed data layer — database is the single source of truth.
 //
-// Results are cached for CACHE_TTL ms so repeated calls (the Home page polls
-// every 5s) don't hammer Supabase — teams/matches refresh at most every 30s.
+// Every function is async and returns the SAME shapes the pages already expect:
+//   team objects   { id, code, group, en, ar, flag }
+//   match objects  { id, stage, group, status, home, away, homeScore, awayScore,
+//                    winner }  (home/away may be null -> UI shows N/D)
+//   standings rows { team, pos, played, won, drawn, lost, gf, ga, gd, pts }
+//
+// Standings come from the `group_standings` PostgreSQL view — the frontend does
+// NOT calculate them manually. Results are cached CACHE_TTL ms; clearCache() is
+// called by the realtime hook whenever a matches row changes.
 
 import { supabase } from '../lib/supabase'
 
 const CACHE_TTL = 30_000
+const TOURNAMENT_ID =
+  import.meta.env.VITE_TOURNAMENT_ID || '00000000-0000-0000-0000-000000000001'
 
 let teamsCache = { data: null, at: 0 }
 let matchesCache = { data: null, at: 0 }
+let groupsCache = { data: null, at: 0 }
+
+let teamsPromise = null
+let matchesPromise = null
+let groupsPromise = null
 
 export function clearCache() {
   teamsCache = { data: null, at: 0 }
   matchesCache = { data: null, at: 0 }
+  groupsCache = { data: null, at: 0 }
+  teamsPromise = null
+  matchesPromise = null
+  groupsPromise = null
+}
+
+// ---------------------------------------------------------------------------
+// Raw fetchers (TTL cache + in-flight dedup via promise)
+// ---------------------------------------------------------------------------
+
+function fetchGroups(force = false) {
+  const fresh = groupsCache.data && Date.now() - groupsCache.at < CACHE_TTL
+  if (fresh && !force) return Promise.resolve(groupsCache.data)
+  if (!groupsPromise) {
+    groupsPromise = supabase
+      .from('groups')
+      .select('*')
+      .eq('tournament_id', TOURNAMENT_ID)
+      .order('display_order')
+      .then(({ data, error }) => {
+        if (error) throw error
+        groupsCache = { data: data || [], at: Date.now() }
+        return groupsCache.data
+      })
+      .finally(() => {
+        groupsPromise = null
+      })
+  }
+  return groupsPromise
 }
 
 async function fetchTeams(force = false) {
   const fresh = teamsCache.data && Date.now() - teamsCache.at < CACHE_TTL
   if (fresh && !force) return teamsCache.data
-  const { data, error } = await supabase.from('teams').select('*').order('id')
-  if (error) throw error
-  teamsCache = {
-    data: (data || []).map(teamFromRow),
-    at: Date.now(),
+  if (!teamsPromise) {
+    teamsPromise = (async () => {
+      const [groups, { data, error }] = await Promise.all([
+        fetchGroups(force),
+        supabase.from('teams').select('*').eq('tournament_id', TOURNAMENT_ID).order('id'),
+      ])
+      if (error) throw error
+      const groupById = {}
+      groups.forEach((g) => {
+        groupById[g.id] = g.name
+      })
+      teamsCache = {
+        data: (data || []).map((row) => teamFromRow(row, groupById)),
+        at: Date.now(),
+      }
+      return teamsCache.data
+    })().finally(() => {
+      teamsPromise = null
+    })
   }
-  return teamsCache.data
+  return teamsPromise
 }
 
 async function fetchMatches(force = false) {
   const fresh = matchesCache.data && Date.now() - matchesCache.at < CACHE_TTL
   if (fresh && !force) return matchesCache.data
-
-  const teams = await fetchTeams(force)
-  const teamsById = {}
-  teams.forEach((t) => {
-    teamsById[t.id] = t
-  })
-
-  const { data, error } = await supabase
-    .from('matches')
-    .select('*')
-    .order('match_date', { nullsFirst: false })
-    .order('id')
-
-  if (error) throw error
-
-  matchesCache = {
-    data: (data || []).map((row) => matchFromRow(row, teamsById)),
-    at: Date.now(),
+  if (!matchesPromise) {
+    matchesPromise = (async () => {
+      const [teams, groups, { data, error }] = await Promise.all([
+        fetchTeams(force),
+        fetchGroups(force),
+        supabase
+          .from('matches')
+          .select('*')
+          .eq('tournament_id', TOURNAMENT_ID)
+          .order('match_order'),
+      ])
+      if (error) throw error
+      const teamsById = {}
+      teams.forEach((t) => {
+        teamsById[t.id] = t
+      })
+      const groupById = {}
+      groups.forEach((g) => {
+        groupById[g.id] = g.name
+      })
+      matchesCache = {
+        data: (data || []).map((row) => matchFromRow(row, teamsById, groupById)),
+        at: Date.now(),
+      }
+      return matchesCache.data
+    })().finally(() => {
+      matchesPromise = null
+    })
   }
-  return matchesCache.data
+  return matchesPromise
 }
 
-function teamFromRow(row) {
+// ---------------------------------------------------------------------------
+// Row mappers
+// ---------------------------------------------------------------------------
+
+function teamFromRow(row, groupById) {
   return {
     id: row.id,
     code: row.id,
-    group: row.group_letter,
+    group: row.group_id ? groupById[row.group_id] || null : null,
     en: row.en || row.name,
     ar: row.ar || row.name,
     flag: (row.logo_url || '').replace(/^\/images\//, ''),
   }
 }
 
-function matchFromRow(row, teamsById) {
-  const home = teamsById[row.home_team_id] || null
-  const away = teamsById[row.away_team_id] || null
+function matchFromRow(row, teamsById, groupById) {
+  const home = row.home_team_id ? teamsById[row.home_team_id] || null : null
+  const away = row.away_team_id ? teamsById[row.away_team_id] || null : null
   let winner = null
-  if (home && away && typeof row.home_score === 'number' && typeof row.away_score === 'number') {
+  if (row.winner_team_id && teamsById[row.winner_team_id]) {
+    winner = teamsById[row.winner_team_id]
+  } else if (
+    home &&
+    away &&
+    typeof row.home_score === 'number' &&
+    typeof row.away_score === 'number'
+  ) {
     if (row.home_score > row.away_score) winner = home
     else if (row.away_score > row.home_score) winner = away
   }
   return {
     id: row.id,
-    group: row.group_letter,
     stage: row.stage,
+    group: row.group_id ? groupById[row.group_id] || null : null,
     status: row.status,
     home,
     away,
@@ -89,7 +163,7 @@ function matchFromRow(row, teamsById) {
 }
 
 // ---------------------------------------------------------------------------
-// Group-stage helpers
+// Group stage
 // ---------------------------------------------------------------------------
 
 export async function getMatchResults() {
@@ -110,78 +184,83 @@ export async function getDraw() {
 }
 
 // ---------------------------------------------------------------------------
-// Standings (computed live from finished group matches — no manual updates)
+// Groups (drives the group selector tabs on the Standings page)
 // ---------------------------------------------------------------------------
 
-function standingsFor(letter, groupTeams, groupMatches) {
-  const map = {}
-  groupTeams.forEach((team) => {
-    map[team.id] = { team, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, pts: 0 }
-  })
-
-  groupMatches.forEach((m) => {
-    const h = map[m.home.id]
-    const a = map[m.away.id]
-    if (!h || !a) return
-    const hs = m.homeScore ?? 0
-    const as = m.awayScore ?? 0
-    h.played += 1
-    a.played += 1
-    h.gf += hs
-    h.ga += as
-    a.gf += as
-    a.ga += hs
-    if (hs > as) {
-      h.won += 1
-      h.pts += 3
-      a.lost += 1
-    } else if (hs < as) {
-      a.won += 1
-      a.pts += 3
-      h.lost += 1
-    } else {
-      h.drawn += 1
-      a.drawn += 1
-      h.pts += 1
-      a.pts += 1
-    }
-  })
-
-  const rows = Object.values(map).map((r) => ({ ...r, gd: r.gf - r.ga }))
-  rows.sort(
-    (x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf || x.team.id.localeCompare(y.team.id),
-  )
-  rows.forEach((r, i) => {
-    r.pos = i + 1
-  })
-  return rows
+export async function getGroups() {
+  const groups = await fetchGroups()
+  return groups.map((g) => ({ id: g.id, name: g.name }))
 }
 
-export async function getStandings() {
-  const [teams, matches] = await Promise.all([fetchTeams(), fetchMatches()])
-  const groupMatches = matches.filter((m) => m.stage === 'group')
-  const letters = [...new Set(teams.map((t) => t.group).filter(Boolean))].sort()
+// ---------------------------------------------------------------------------
+// Standings — sourced from the group_standings SQL view (no frontend math)
+// ---------------------------------------------------------------------------
 
-  return letters.map((letter) => {
-    const groupTeams = teams.filter((t) => t.group === letter)
-    const gm = groupMatches.filter((m) => m.group === letter)
-    return { group: letter, rows: standingsFor(letter, groupTeams, gm) }
+export async function getStandings() {
+  const [teams, { data, error }] = await Promise.all([
+    fetchTeams(),
+    supabase.from('group_standings').select('*').order('group_name').order('position'),
+  ])
+  if (error) throw error
+
+  const teamById = {}
+  teams.forEach((t) => {
+    teamById[t.id] = t
   })
+
+  const byGroup = {}
+  ;(data || []).forEach((row) => {
+    if (!teamById[row.team_id]) return
+    const item = {
+      team: teamById[row.team_id],
+      pos: row.position,
+      played: row.played,
+      won: row.wins,
+      drawn: row.draws,
+      lost: row.losses,
+      gf: row.goals_for,
+      ga: row.goals_against,
+      gd: row.goal_difference,
+      pts: row.points,
+    }
+    ;(byGroup[row.group_name] = byGroup[row.group_name] || []).push(item)
+  })
+
+  const groups = await getGroups()
+  return groups.map((g) => ({ group: g.name, rows: byGroup[g.name] || [] }))
 }
 
 export async function getThirdPlaceStandings() {
-  const groups = await getStandings()
-  const rows = groups
-    .map((sg) => ({ ...sg.rows[2], group: sg.group }))
-    .filter((r) => r.team)
-  rows.sort(
-    (a, b) =>
-      b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.team.id.localeCompare(b.team.id),
-  )
-  rows.forEach((r, i) => {
-    r.pos = i + 1
+  const [teams, { data, error }] = await Promise.all([
+    fetchTeams(),
+    supabase
+      .from('third_place_standings')
+      .select('*')
+      .eq('tournament_id', TOURNAMENT_ID)
+      .order('position'),
+  ])
+  if (error) throw error
+
+  const teamById = {}
+  teams.forEach((t) => {
+    teamById[t.id] = t
   })
-  return rows
+
+  return (data || []).map((row) => ({
+    team: row.team_id ? teamById[row.team_id] || null : null,
+    group: row.group_name,
+    pos: row.position,
+    qualified: row.qualified,
+    determined: row.determined,
+    played: row.played,
+    won: row.wins,
+    drawn: row.draws,
+    lost: row.losses,
+    gf: row.goals_for,
+    ga: row.goals_against,
+    gd: row.goal_difference,
+    pts: row.points,
+  }))
 }
 
 // ---------------------------------------------------------------------------
@@ -204,11 +283,27 @@ export async function computeKnockoutProgression() {
 }
 
 export async function getQualifiedTeams() {
-  const groups = await getStandings()
-  const thirds = await getThirdPlaceStandings()
-  const qualified = groups
-    .flatMap((sg) => sg.rows.filter((r) => r.pos <= 2).map((r) => r.team))
-    .concat(thirds.slice(0, 8).map((r) => r.team))
+  const [groupStandings, thirdPlaceRows] = await Promise.all([
+    (async () => {
+      const { data, error } = await supabase
+        .from('group_standings')
+        .select('team_id, position')
+      if (error) throw error
+      const teams = []
+      ;(data || []).forEach((r) => {
+        if (r.position === 1) teams.push({ id: r.team_id, rank: 1 })
+        else if (r.position === 2) teams.push({ id: r.team_id, rank: 2 })
+      })
+      return teams
+    })(),
+    getThirdPlaceStandings(),
+  ])
+
+  const qualified = groupStandings.concat(
+    thirdPlaceRows
+      .filter((r) => r.team && r.qualified)
+      .map((r) => ({ id: r.team.id, rank: 3 })),
+  )
   const unique = [...new Map(qualified.map((t) => [t.id, t])).values()]
   return { totalQualified: unique.length, teams: unique }
 }

@@ -1843,6 +1843,19 @@ button:focus-visible {
   opacity: 0.72;
 }
 
+.standings-table tr.nd {
+  opacity: 0.6;
+}
+
+.standings-table tr.nd .pos-cell {
+  color: var(--text-muted);
+}
+
+.standings-table tr.nd .nd-name {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .standings-table tr.q .pos-cell {
   color: var(--success);
 }
@@ -2569,4 +2582,16 @@ button:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------- Data loading states ---------- */
+.load-state,
+.err-state {
+  text-align: center;
+  padding: 30px 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.err-state {
+  color: #f87171;
 }

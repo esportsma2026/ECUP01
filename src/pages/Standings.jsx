@@ -3,6 +3,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { teamName, GROUP_LETTERS } from '../data/teams'
 import * as db from '../data/effotbaleDb'
 import TeamBadge from '../components/TeamBadge'
+import { useMatchesRealtime } from '../hooks/useMatchesRealtime'
 
 function GroupTable({ group }) {
   const { t, lang } = useLanguage()
@@ -26,6 +27,9 @@ function GroupTable({ group }) {
               <th>{t('standings.w')}</th>
               <th>{t('standings.d')}</th>
               <th>{t('standings.l')}</th>
+              <th>{t('standings.gf')}</th>
+              <th>{t('standings.ga')}</th>
+              <th>{t('standings.gd')}</th>
               <th>{t('standings.pts')}</th>
             </tr>
           </thead>
@@ -43,6 +47,11 @@ function GroupTable({ group }) {
                 <td>{row.won}</td>
                 <td>{row.drawn}</td>
                 <td>{row.lost}</td>
+                <td>{row.gf}</td>
+                <td>{row.ga}</td>
+                <td className={row.gd > 0 ? 'gd-cell pos' : row.gd < 0 ? 'gd-cell neg' : ''}>
+                  {row.gd > 0 ? `+${row.gd}` : row.gd}
+                </td>
                 <td className="t-pts">{row.pts}</td>
               </tr>
             ))}
@@ -81,23 +90,30 @@ function ThirdPlaceTable({ rows }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.team.id} className={row.pos <= 8 ? 'q' : 'elim'}>
-                <td className="pos-cell">{row.pos}</td>
-                <td className="t-team">
-                  <span className="team-inline">
-                    <TeamBadge team={row.team} />
-                    <span className="team-name">{teamName(row.team, lang)}</span>
-                  </span>
-                </td>
-                <td className="group-cell">{row.group}</td>
-                <td>{row.played}</td>
-                <td>{row.won}</td>
-                <td>{row.drawn}</td>
-                <td>{row.lost}</td>
-                <td className="t-pts">{row.pts}</td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const nd = !row.team
+              return (
+                <tr key={row.group} className={nd ? 'nd' : row.pos <= 8 ? 'q' : 'elim'}>
+                  <td className="pos-cell">{row.pos}</td>
+                  <td className="t-team">
+                    {nd ? (
+                      <span className="team-name nd-name">N/D</span>
+                    ) : (
+                      <span className="team-inline">
+                        <TeamBadge team={row.team} />
+                        <span className="team-name">{teamName(row.team, lang)}</span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="group-cell">{row.group}</td>
+                  <td>{nd ? '—' : row.played}</td>
+                  <td>{nd ? '—' : row.won}</td>
+                  <td>{nd ? '—' : row.drawn}</td>
+                  <td>{nd ? '—' : row.lost}</td>
+                  <td className="t-pts">{nd ? '—' : row.pts}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -110,21 +126,42 @@ function Standings() {
   const [selected, setSelected] = useState('A')
   const [groups, setGroups] = useState([])
   const [thirds, setThirds] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
-    db.getStandings()
-      .then((g) => active && setGroups(g))
-      .catch((err) => console.error('Failed to load standings', err))
-    db.getThirdPlaceStandings()
-      .then((r) => active && setThirds(r))
-      .catch((err) => console.error('Failed to load third-place standings', err))
+    Promise.all([db.getStandings(), db.getThirdPlaceStandings(), db.getGroups()])
+      .then(([g, r, grpList]) => {
+        if (!active) return
+        setGroups(g)
+        setThirds(r)
+        const first = grpList[0]?.name || 'A'
+        setSelected((prev) => (prev && grpList.some((x) => x.name === prev) ? prev : first))
+        setError('')
+      })
+      .catch((err) => {
+        if (!active) return
+        console.error('Failed to load standings', err)
+        setError('Failed to load standings')
+      })
+      .finally(() => active && setLoading(false))
     return () => {
       active = false
     }
   }, [])
 
+  useMatchesRealtime(() => {
+    Promise.all([db.getStandings(), db.getThirdPlaceStandings()])
+      .then(([g, r]) => {
+        setGroups(g)
+        setThirds(r)
+      })
+      .catch((err) => console.error('Realtime refresh failed', err))
+  })
+
   const current = groups.find((g) => g.group === selected) || groups[0]
+  const tabs = groups.length > 0 ? groups.map((g) => g.group) : GROUP_LETTERS
 
   return (
     <main className="page-fade">
@@ -138,7 +175,7 @@ function Standings() {
       <section className="container standings-select-wrap">
         <p className="standings-select-label">{t('standings.selectGroup')}</p>
         <div className="group-tabs" role="tablist" aria-label={t('standings.selectGroup')}>
-          {GROUP_LETTERS.map((letter) => (
+          {tabs.map((letter) => (
             <button
               key={letter}
               type="button"
@@ -159,7 +196,10 @@ function Standings() {
         </p>
       </section>
 
-      {groups.length > 0 && current && (
+      {loading && <div className="load-state">…</div>}
+      {!loading && error && <div className="err-state">{error}</div>}
+
+      {!loading && !error && groups.length > 0 && current && (
         <section className="container" style={{ paddingBottom: '12px' }}>
           <div key={current.group} className="standings-single anim-group">
             <GroupTable group={current} />
@@ -167,9 +207,11 @@ function Standings() {
         </section>
       )}
 
-      <section className="container third-wrap">
-        <ThirdPlaceTable rows={thirds} />
-      </section>
+      {!loading && !error && (
+        <section className="container third-wrap">
+          <ThirdPlaceTable rows={thirds} />
+        </section>
+      )}
     </main>
   )
 }
