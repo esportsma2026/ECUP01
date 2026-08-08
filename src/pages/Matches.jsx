@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLanguage } from '../context/LanguageContext'
 import { teamName } from '../data/teams'
 import * as db from '../data/effotbaleDb'
@@ -35,9 +35,8 @@ function MatchRow({ match, isFinal }) {
   )
 }
 
-function GroupStage() {
+function GroupStage({ matches }) {
   const { t } = useLanguage()
-  const matches = db.getMatchResults()
   const groups = [...new Set(matches.map((m) => m.group))].sort()
 
   return (
@@ -66,9 +65,8 @@ function GroupStage() {
   )
 }
 
-function KnockoutStage() {
+function KnockoutStage({ ko }) {
   const { t } = useLanguage()
-  const ko = db.getKnockoutData()
 
   return (
     <div className="groups-grid">
@@ -97,6 +95,21 @@ function KnockoutStage() {
 function Matches() {
   const { t } = useLanguage()
   const [view, setView] = useState('groups')
+  const [matches, setMatches] = useState([])
+  const [ko, setKo] = useState({})
+
+  useEffect(() => {
+    let active = true
+    db.getMatchResults()
+      .then((m) => active && setMatches(m))
+      .catch((err) => console.error('Failed to load matches', err))
+    db.getKnockoutData()
+      .then((k) => active && setKo(k))
+      .catch((err) => console.error('Failed to load knockout', err))
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <main className="page-fade">
@@ -125,7 +138,7 @@ function Matches() {
           </button>
         </div>
 
-        {view === 'groups' ? <GroupStage /> : <KnockoutStage />}
+        {view === 'groups' ? <GroupStage matches={matches} /> : <KnockoutStage ko={ko} />}
       </section>
     </main>
   )

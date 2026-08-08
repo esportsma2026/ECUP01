@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useLanguage } from '../context/LanguageContext'
 import { teamName } from '../data/teams'
 import * as db from '../data/effotbaleDb'
 import TeamBadge from '../components/TeamBadge'
+import './knockout.css'
 
 const ROUND_DEFS = [
   { key: 'r32', roundKey: 'round.r32', col: 1, hasPrev: false, hasNext: true },
@@ -79,7 +81,17 @@ function ChampionBanner({ team, lang }) {
 
 function Knockout() {
   const { t, lang } = useLanguage()
-  const ko = db.getKnockoutData()
+  const [ko, setKo] = useState({})
+
+  useEffect(() => {
+    let active = true
+    db.getKnockoutData()
+      .then((k) => active && setKo(k))
+      .catch((err) => console.error('Failed to load knockout', err))
+    return () => {
+      active = false
+    }
+  }, [])
 
   const name = (team) => teamName(team, lang)
   const finalMatch = ko.final && ko.final[0]

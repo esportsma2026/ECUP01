@@ -12,24 +12,25 @@ function useStats(lang, t) {
   })
 
   useEffect(() => {
-    function update() {
-      const matches = db.getMatchResults()
-      const draw = db.getDraw()
-      let ko = db.getKnockoutData()
+    async function update() {
+      try {
+        const matches = await db.getMatchResults()
+        const draw = await db.getDraw()
+        let ko = await db.getKnockoutData()
 
-      const totalPlayed = matches.filter((m) => m.status === 'finished').length
+        const totalPlayed = matches.filter((m) => m.status === 'finished').length
 
-      let finishedGroups = 0
-      if (draw) {
-        const groupKeys = Object.keys(draw).sort()
-        groupKeys.forEach((key) => {
-          const gMatches = matches.filter((m) => m.group === key)
-          if (gMatches.length > 0 && gMatches.every((m) => m.status === 'finished')) {
-            finishedGroups += 1
-          }
-        })
-        if (finishedGroups === 12) ko = db.computeKnockoutProgression()
-      }
+        let finishedGroups = 0
+        if (draw) {
+          const groupKeys = Object.keys(draw).sort()
+          groupKeys.forEach((key) => {
+            const gMatches = matches.filter((m) => m.group === key)
+            if (gMatches.length > 0 && gMatches.every((m) => m.status === 'finished')) {
+              finishedGroups += 1
+            }
+          })
+          if (finishedGroups === 12) ko = await db.computeKnockoutProgression()
+        }
 
       const roundMap = {
         r32: lang === 'ar' ? 'دور الـ32' : 'Round of 32',
@@ -55,24 +56,27 @@ function useStats(lang, t) {
         }
       }
 
-      const qt = db.getQualifiedTeams()
-      setStats((prev) => {
-        const next = {
-          matches: `${totalPlayed}/72`,
-          groups: finishedGroups,
-          round: currentRound,
-          qualified: qt ? qt.totalQualified : 0,
-        }
-        if (
-          prev.matches === next.matches &&
-          prev.groups === next.groups &&
-          prev.round === next.round &&
-          prev.qualified === next.qualified
-        ) {
-          return prev
-        }
-        return next
-      })
+        const qt = await db.getQualifiedTeams()
+        setStats((prev) => {
+          const next = {
+            matches: `${totalPlayed}/72`,
+            groups: finishedGroups,
+            round: currentRound,
+            qualified: qt ? qt.totalQualified : 0,
+          }
+          if (
+            prev.matches === next.matches &&
+            prev.groups === next.groups &&
+            prev.round === next.round &&
+            prev.qualified === next.qualified
+          ) {
+            return prev
+          }
+          return next
+        })
+      } catch (err) {
+        console.error('Failed to refresh tournament stats', err)
+      }
     }
 
     update()

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLanguage } from '../context/LanguageContext'
 import { teamName, GROUP_LETTERS } from '../data/teams'
 import * as db from '../data/effotbaleDb'
@@ -108,8 +108,22 @@ function ThirdPlaceTable({ rows }) {
 function Standings() {
   const { t } = useLanguage()
   const [selected, setSelected] = useState('A')
-  const groups = db.getStandings()
-  const thirds = db.getThirdPlaceStandings()
+  const [groups, setGroups] = useState([])
+  const [thirds, setThirds] = useState([])
+
+  useEffect(() => {
+    let active = true
+    db.getStandings()
+      .then((g) => active && setGroups(g))
+      .catch((err) => console.error('Failed to load standings', err))
+    db.getThirdPlaceStandings()
+      .then((r) => active && setThirds(r))
+      .catch((err) => console.error('Failed to load third-place standings', err))
+    return () => {
+      active = false
+    }
+  }, [])
+
   const current = groups.find((g) => g.group === selected) || groups[0]
 
   return (
@@ -145,11 +159,13 @@ function Standings() {
         </p>
       </section>
 
-      <section className="container" style={{ paddingBottom: '12px' }}>
-        <div key={current.group} className="standings-single anim-group">
-          <GroupTable group={current} />
-        </div>
-      </section>
+      {groups.length > 0 && current && (
+        <section className="container" style={{ paddingBottom: '12px' }}>
+          <div key={current.group} className="standings-single anim-group">
+            <GroupTable group={current} />
+          </div>
+        </section>
+      )}
 
       <section className="container third-wrap">
         <ThirdPlaceTable rows={thirds} />

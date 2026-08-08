@@ -1,0 +1,265 @@
+/* ---------- Knockout special design (page-scoped) ---------- */
+
+.knockout-page {
+  padding-bottom: 60px;
+}
+
+.bracket-scroll.bracket-scroll {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: radial-gradient(ellipse at 50% 0%, rgba(124, 77, 255, 0.08), transparent 60%), rgba(14, 14, 24, 0.55);
+}
+
+.bracket .bracket-round-head {
+  position: relative;
+}
+
+.bracket .bracket-round-head::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 3px;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--primary), var(--accent));
+  opacity: 0.8;
+}
+
+.bracket .bracket-round-head.final {
+  color: var(--secondary);
+}
+
+.bracket .bracket-round-head.final::before {
+  background: linear-gradient(180deg, #ff6b35, #f59e0b);
+}
+
+.bracket .bracket-team.win {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.09), transparent);
+}
+
+.bracket .bracket-team.win .bracket-team-name {
+  color: #fff;
+}
+
+.bracket .bracket-team.win .bracket-team-score {
+  color: #ffd166;
+  font-weight: 800;
+}
+
+.bracket-team .bracket-crown {
+  font-size: calc(var(--br-unit) * 0.85);
+  flex-shrink: 0;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.7));
+  animation: crownBob 1.8s ease-in-out infinite;
+}
+
+@keyframes crownBob {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-2px) rotate(8deg); }
+}
+
+.bracket .bracket-match.final {
+  animation: finalGlow 3s ease-in-out infinite;
+}
+
+@keyframes finalGlow {
+  0%, 100% { box-shadow: 0 0 24px rgba(245, 158, 11, 0.14), inset 0 0 24px rgba(245, 158, 11, 0.04); }
+  50% { box-shadow: 0 0 44px rgba(245, 158, 11, 0.35), inset 0 0 36px rgba(245, 158, 11, 0.08); }
+}
+
+.bracket-champion.bracket-champion {
+  animation: champStripShimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes champStripShimmer {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+.anim-champion {
+  animation: fadeSlideIn 0.7s ease both;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Champion banner */
+.champion-banner {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  border-radius: var(--radius-lg);
+  padding: 44px 24px 38px;
+  margin-bottom: 38px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.22), transparent 60%),
+    radial-gradient(ellipse at 15% 110%, rgba(124, 77, 255, 0.25), transparent 55%),
+    linear-gradient(160deg, #1c1533, #0e0e18 70%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.45),
+    inset 0 0 90px rgba(245, 158, 11, 0.05);
+}
+
+.champion-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.12);
+  pointer-events: none;
+}
+
+.champion-glow {
+  position: absolute;
+  left: 50%;
+  top: -80px;
+  width: 320px;
+  height: 320px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent 65%);
+  filter: blur(12px);
+  animation: champPulse 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes champPulse {
+  0%, 100% { opacity: 0.45; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.95; transform: translateX(-50%) scale(1.12); }
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  z-index: 1;
+  animation: confettiFall 6s ease-in infinite;
+  pointer-events: none;
+}
+
+.confetti.d1 { left: 12%; top: -20px; background: #f59e0b; animation-delay: 0s; }
+.confetti.d2 { left: 26%; top: -20px; background: var(--primary); animation-delay: 1.2s; }
+.confetti.d3 { left: 66%; top: -20px; background: var(--success); animation-delay: 2.1s; }
+.confetti.d4 { left: 80%; top: -20px; background: var(--accent); animation-delay: 3.3s; }
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.85; }
+  100% { transform: translateY(360px) rotate(720deg); opacity: 0; }
+}
+
+.champion-inner {
+  position: relative;
+  z-index: 2;
+}
+
+.champion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 18px;
+  border-radius: 50px;
+  background: linear-gradient(90deg, #ff6b35, #f59e0b);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.4);
+}
+
+.champion-emblem {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  margin: 24px auto 16px;
+  display: grid;
+  place-items: center;
+}
+
+.champion-emblem .team-badge {
+  width: 70px;
+  height: 70px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(245, 158, 11, 0.4);
+  animation: champFloat 3s ease-in-out infinite;
+}
+
+.champion-ring {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2px dashed rgba(245, 158, 11, 0.55);
+  animation: champSpin 16s linear infinite;
+}
+
+@keyframes champFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes champSpin {
+  to { transform: rotate(360deg); }
+}
+
+.champion-name {
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 6vw, 2.9rem);
+  font-weight: 900;
+  margin: 0 0 8px;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, #fde68a, #f59e0b, #fff, #f59e0b, #fde68a);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmerText 3s linear infinite;
+}
+
+@keyframes shimmerText {
+  0% { background-position: 0% center; }
+  100% { background-position: -220% center; }
+}
+
+.champion-tagline {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* RTL tweaks for the champion banner */
+[dir='rtl'] .champion-name {
+  letter-spacing: 0;
+}
+
+[dir='rtl'] .champion-badge,
+[dir='rtl'] .champion-tagline {
+  letter-spacing: 0;
+}
+
+/* Mobile tuning for the banner */
+@media (max-width: 560px) {
+  .champion-banner {
+    padding: 34px 16px 30px;
+    margin-bottom: 28px;
+  }
+  .champion-name {
+    font-size: clamp(1.4rem, 7vw, 2.1rem);
+  }
+}
