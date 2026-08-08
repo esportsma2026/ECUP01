@@ -42,8 +42,37 @@ function TeamRow({ team, score, win, lang }) {
   return (
     <div className={`bracket-team ${win ? 'win' : ''}`}>
       <TeamBadge team={team} />
-      <span className="bracket-team-name">{teamName(team, lang)}</span>
+      <span className="bracket-team-name" title={teamName(team, lang)}>
+        {teamName(team, lang)}
+      </span>
       <span className="bracket-team-score">{score ?? '–'}</span>
+      {win && (
+        <span className="bracket-crown" aria-hidden="true">
+          👑
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ChampionBanner({ team, lang }) {
+  const { t } = useLanguage()
+  return (
+    <div className="champion-banner anim-champion">
+      <div className="champion-glow" aria-hidden="true" />
+      <span className="confetti d1" aria-hidden="true" />
+      <span className="confetti d2" aria-hidden="true" />
+      <span className="confetti d3" aria-hidden="true" />
+      <span className="confetti d4" aria-hidden="true" />
+      <div className="champion-inner">
+        <span className="champion-badge">🏆 {t('champion')}</span>
+        <div className="champion-emblem">
+          <span className="champion-ring" aria-hidden="true" />
+          <TeamBadge team={team} />
+        </div>
+        <h2 className="champion-name">{teamName(team, lang)}</h2>
+        <p className="champion-tagline">Effotbale World Cup 2026</p>
+      </div>
     </div>
   )
 }
@@ -53,6 +82,8 @@ function Knockout() {
   const ko = db.getKnockoutData()
 
   const name = (team) => teamName(team, lang)
+  const finalMatch = ko.final && ko.final[0]
+  const winner = finalMatch && finalMatch.winner
 
   return (
     <main className="page-fade">
@@ -63,7 +94,9 @@ function Knockout() {
         </div>
       </section>
 
-      <section className="container" style={{ paddingBottom: '60px' }}>
+      <section className="container knockout-page">
+        {winner && <ChampionBanner team={winner} lang={lang} />}
+
         <p className="bracket-hint">{t('knockout.scrollHint')}</p>
         <div className="bracket-scroll">
           <div className="bracket">

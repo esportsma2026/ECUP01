@@ -4,6 +4,15 @@ function TeamBadge({ team, className }) {
     for (const ch of team.code) h = (h * 31 + ch.charCodeAt(0)) % 360
   }
   const hue = h || 260
+
+  if (team && team.flag) {
+    return (
+      <span className={`team-badge team-badge-flag ${className || ''}`}>
+        <img src={`/images/${encodeURIComponent(team.flag)}`} alt={team.code} loading="lazy" />
+      </span>
+    )
+  }
+
   return (
     <span
       className={`team-badge ${className || ''}`}

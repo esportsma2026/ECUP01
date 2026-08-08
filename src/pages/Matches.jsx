@@ -3,7 +3,6 @@ import { useLanguage } from '../context/LanguageContext'
 import { teamName } from '../data/teams'
 import * as db from '../data/effotbaleDb'
 import TeamBadge from '../components/TeamBadge'
-import TournamentSubnav from '../components/TournamentSubnav'
 
 const KO_ORDER = ['r32', 'r16', 'qf', 'sf', 'final']
 
@@ -107,8 +106,6 @@ function Matches() {
           <p>{t('matches.subtitle')}</p>
         </div>
       </section>
-
-      <TournamentSubnav />
 
       <section className="container" style={{ paddingBottom: '60px' }}>
         <div className="matches-view">

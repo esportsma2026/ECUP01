@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useLanguage } from '../context/LanguageContext'
-import { teamName } from '../data/teams'
+import { teamName, GROUP_LETTERS } from '../data/teams'
 import * as db from '../data/effotbaleDb'
 import TeamBadge from '../components/TeamBadge'
 
@@ -16,7 +17,7 @@ function GroupTable({ group }) {
         </span>
       </div>
       <div className="table-scroll">
-        <table className="standings-table">
+        <table className="standings-table group-table">
           <thead>
             <tr>
               <th aria-label="Position">#</th>
@@ -25,9 +26,6 @@ function GroupTable({ group }) {
               <th>{t('standings.w')}</th>
               <th>{t('standings.d')}</th>
               <th>{t('standings.l')}</th>
-              <th>{t('standings.gf')}</th>
-              <th>{t('standings.ga')}</th>
-              <th>{t('standings.gd')}</th>
               <th>{t('standings.pts')}</th>
             </tr>
           </thead>
@@ -45,11 +43,6 @@ function GroupTable({ group }) {
                 <td>{row.won}</td>
                 <td>{row.drawn}</td>
                 <td>{row.lost}</td>
-                <td>{row.gf}</td>
-                <td>{row.ga}</td>
-                <td className={`gd-cell ${row.gd > 0 ? 'pos' : row.gd < 0 ? 'neg' : ''}`}>
-                  {row.gd > 0 ? `+${row.gd}` : row.gd}
-                </td>
                 <td className="t-pts">{row.pts}</td>
               </tr>
             ))}
@@ -84,9 +77,6 @@ function ThirdPlaceTable({ rows }) {
               <th>{t('standings.w')}</th>
               <th>{t('standings.d')}</th>
               <th>{t('standings.l')}</th>
-              <th>{t('standings.gf')}</th>
-              <th>{t('standings.ga')}</th>
-              <th>{t('standings.gd')}</th>
               <th>{t('standings.pts')}</th>
             </tr>
           </thead>
@@ -105,11 +95,6 @@ function ThirdPlaceTable({ rows }) {
                 <td>{row.won}</td>
                 <td>{row.drawn}</td>
                 <td>{row.lost}</td>
-                <td>{row.gf}</td>
-                <td>{row.ga}</td>
-                <td className={`gd-cell ${row.gd > 0 ? 'pos' : row.gd < 0 ? 'neg' : ''}`}>
-                  {row.gd > 0 ? `+${row.gd}` : row.gd}
-                </td>
                 <td className="t-pts">{row.pts}</td>
               </tr>
             ))}
@@ -122,8 +107,10 @@ function ThirdPlaceTable({ rows }) {
 
 function Standings() {
   const { t } = useLanguage()
+  const [selected, setSelected] = useState('A')
   const groups = db.getStandings()
   const thirds = db.getThirdPlaceStandings()
+  const current = groups.find((g) => g.group === selected) || groups[0]
 
   return (
     <main className="page-fade">
@@ -134,11 +121,33 @@ function Standings() {
         </div>
       </section>
 
-      <section className="container" style={{ paddingBottom: '12px' }}>
-        <div className="groups-grid">
-          {groups.map((group) => (
-            <GroupTable key={group.group} group={group} />
+      <section className="container standings-select-wrap">
+        <p className="standings-select-label">{t('standings.selectGroup')}</p>
+        <div className="group-tabs" role="tablist" aria-label={t('standings.selectGroup')}>
+          {GROUP_LETTERS.map((letter) => (
+            <button
+              key={letter}
+              type="button"
+              role="tab"
+              aria-selected={selected === letter}
+              className={`group-tab ${selected === letter ? 'active' : ''}`}
+              onClick={() => setSelected(letter)}
+            >
+              {letter}
+            </button>
           ))}
+        </div>
+        <p className="standings-legend">
+          <span className="legend-dot q" aria-hidden="true" />
+          {t('standings.qualified')}
+          <span className="legend-dot third" aria-hidden="true" />
+          {t('standings.thirdHint')}
+        </p>
+      </section>
+
+      <section className="container" style={{ paddingBottom: '12px' }}>
+        <div key={current.group} className="standings-single anim-group">
+          <GroupTable group={current} />
         </div>
       </section>
 
