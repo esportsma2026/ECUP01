@@ -1,14 +1,14 @@
 import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot } from 'react-dev-client'
 import './index.css'
 import App from './App.jsx'
 import { inject } from '@vercel/analytics'
-import { registerSW } from 'vite-plugin-pwa/register' // 1. Ajout de l'importation PWA
+import { registerSW } from 'virtual:pwa-register'
 
-// Activation de Vercel Analytics
+// تفعيل Vercel Analytics تلقائياً
 inject()
 
-// 2. Enregistrement automatique du Service Worker pour l'installation réelle
+// تفعيل تسجيل الـ PWA بشكل صحيح متوافق مع نظام Vite
 registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')).render(

@@ -192,7 +192,7 @@ function Matches() {
           (view === 'groups' ? <GroupStage matches={matches} /> : <KnockoutStage ko={ko} />)}
       </section>
 
-      {/* Fenêtre Modale Publicitaire Sponsorisée */}
+      {/* Persistent Sponsorship Pop-up Modal */}
       {showAd && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
@@ -210,7 +210,7 @@ function Matches() {
             </button>
             <div className="mt-4">
               <span className="mb-4 inline-block rounded-full bg-[#ff0055]/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-[#ff7ba9]">
-                Publicité Sponsorisée
+                Sponsored Ad
               </span>
               
               <a href="#" target="_blank" rel="noreferrer" className="block">
@@ -221,10 +221,10 @@ function Matches() {
                 />
               </a>
               <h3 className="mt-4 text-lg font-bold text-white">
-                Rechargez vos pièces eFootball instantanément !
+                Top Up eFootball Coins Instantly!
               </h3>
               <p className="mt-1 text-sm text-gray-400">
-                Offres exclusives et réductions pour une durée limitée. Ne ratez pas cette opportunité.
+                Exclusive offers and discounts for a limited time. Don't miss out.
               </p>
             </div>
           </div>
