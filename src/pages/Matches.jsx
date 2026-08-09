@@ -120,6 +120,15 @@ function Matches() {
   const [ko, setKo] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showAd, setShowAd] = useState(false)
+
+  // FIXED: Removed sessionStorage restriction. 
+  // Ad loads 1 second after component initialization or when switching views.
+  useEffect(() => {
+    setShowAd(false) // Reset state on toggle
+    const timer = setTimeout(() => setShowAd(true), 1000)
+    return () => clearTimeout(timer)
+  }, [view])
 
   useEffect(() => {
     let active = true
@@ -184,6 +193,45 @@ function Matches() {
           !error &&
           (view === 'groups' ? <GroupStage matches={matches} /> : <KnockoutStage ko={ko} />)}
       </section>
+
+      {/* Persistent Sponsorship Pop-up Modal */}
+      {showAd && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.85)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className="relative w-full max-w-md rounded-xl border border-[#ff0055]/20 bg-[#1a152e] shadow-2xl p-5 text-left">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setShowAd(false)} // Simply closes current modal state
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-600/20 text-red-400 transition-all hover:bg-red-600 hover:text-white font-bold cursor-pointer"
+              style={{ border: 'none' }}
+            >
+              X
+            </button>
+            <div className="mt-4">
+              <span className="mb-4 inline-block rounded-full bg-[#ff0055]/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-[#ff7ba9]">
+                Sponsored Ad
+              </span>
+              
+              <a href="#" target="_blank" rel="noreferrer" className="block">
+                <img
+                  src="https://placehold.co"
+                  alt="Sponsor banner"
+                  className="w-full rounded-lg border border-white/10 h-auto block"
+                />
+              </a>
+              <h3 className="mt-4 text-lg font-bold text-white">
+                Top Up eFootball Coins Instantly!
+              </h3>
+              <p className="mt-1 text-sm text-gray-400">
+                Exclusive offers and discounts for a limited time. Don't miss out.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
