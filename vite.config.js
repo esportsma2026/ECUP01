@@ -35,6 +35,11 @@ export default defineConfig({
           },
         ],
       },
+      // Added devOptions to force service worker and ads preview execution on localhost
+      devOptions: {
+        enabled: true,
+        type: 'module'
+      }
     }),
   ],
 })
