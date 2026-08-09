@@ -122,10 +122,8 @@ function Matches() {
   const [error, setError] = useState('')
   const [showAd, setShowAd] = useState(false)
 
-  // FIXED: Removed sessionStorage restriction. 
-  // Ad loads 1 second after component initialization or when switching views.
   useEffect(() => {
-    setShowAd(false) // Reset state on toggle
+    setShowAd(false)
     const timer = setTimeout(() => setShowAd(true), 1000)
     return () => clearTimeout(timer)
   }, [view])
@@ -194,7 +192,7 @@ function Matches() {
           (view === 'groups' ? <GroupStage matches={matches} /> : <KnockoutStage ko={ko} />)}
       </section>
 
-      {/* Persistent Sponsorship Pop-up Modal */}
+      {/* Fenêtre Modale Publicitaire Sponsorisée */}
       {showAd && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
@@ -204,7 +202,7 @@ function Matches() {
             <button
               type="button"
               aria-label="Close"
-              onClick={() => setShowAd(false)} // Simply closes current modal state
+              onClick={() => setShowAd(false)}
               className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-red-600/20 text-red-400 transition-all hover:bg-red-600 hover:text-white font-bold cursor-pointer"
               style={{ border: 'none' }}
             >
@@ -212,7 +210,7 @@ function Matches() {
             </button>
             <div className="mt-4">
               <span className="mb-4 inline-block rounded-full bg-[#ff0055]/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-[#ff7ba9]">
-                Sponsored Ad
+                Publicité Sponsorisée
               </span>
               
               <a href="#" target="_blank" rel="noreferrer" className="block">
@@ -223,10 +221,10 @@ function Matches() {
                 />
               </a>
               <h3 className="mt-4 text-lg font-bold text-white">
-                Top Up eFootball Coins Instantly!
+                Rechargez vos pièces eFootball instantanément !
               </h3>
               <p className="mt-1 text-sm text-gray-400">
-                Exclusive offers and discounts for a limited time. Don't miss out.
+                Offres exclusives et réductions pour une durée limitée. Ne ratez pas cette opportunité.
               </p>
             </div>
           </div>
