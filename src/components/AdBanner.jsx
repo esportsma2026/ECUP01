@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 
 const AD_CLIENT = 'ca-pub-1915165369435716'
-const AD_SLOT = '0000000000000000'
+
+// حط هنا Ad Slot ID اللي عطاك Google AdSense
+const AD_SLOT = 'YOUR_AD_SLOT_ID'
 
 function AdBanner({ slot = AD_SLOT, className = '' }) {
   useEffect(() => {
