@@ -3,6 +3,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { teamName } from '../data/teams'
 import * as db from '../data/effotbaleDb'
 import TeamBadge from '../components/TeamBadge'
+import AdBanner from '../components/AdBanner'
 import { useMatchesRealtime } from '../hooks/useMatchesRealtime'
 
 const KO_ORDER = ['r32', 'r16', 'qf', 'sf', 'final']
@@ -220,6 +221,7 @@ function Matches() {
                   className="w-full rounded-lg border border-white/10 h-auto block"
                 />
               </a>
+              <AdBanner className="mt-4 rounded-lg border border-white/10 overflow-hidden" />
               <h3 className="mt-4 text-lg font-bold text-white">
                 Top Up eFootball Coins Instantly!
               </h3>
